@@ -1,51 +1,53 @@
-# Tree-lint for WebStorm
+# Tree-lint JetBrains IDE Plugin
 
-Плагин для JetBrains IDE (WebStorm), который запускает
-[`@redwestdev/tree-lint`](https://github.com/redwestdev/tree-lint) и показывает
-нарушения структуры проекта прямо в IDE.
+A plugin for JetBrains IDEs (WebStorm and others) that runs
+[`@redwestdev/tree-lint`](https://github.com/redwestdev/tree-lint) and shows
+project structure violations right inside the IDE.
 
-## Что делает
+## What it does
 
-- **Три режима линта** (радиокнопки в настройках, как у Biome/ESLint):
-  - `Disabled` — плагин выключен, подсветка снимается;
-  - `Automatic` — всё определяется автоматически: корневой конфиг ищется
-    от папки проекта вверх (`tree-lint.config.{ts,js,mjs,mts,json,yaml,yml}`),
-    Node.js — из PATH, CLI — `node_modules/@redwestdev/tree-lint/dist/cli.js`
-    (включая монорепо) → `node_modules/.bin/tree-lint` → `tree-lint` из PATH.
-    Скан запускается: при открытии проекта, при сохранении файла (если
-    включён чекбокс), при создании/переименовании/удалении файлов и при
-    изменении конфига (всегда);
-  - `Manual` — скан только по команде **Tools → Tree-lint: Scan Project**
-    (или кнопкой «Scan project» в панели); в этом режиме доступны поля для
-    ручной настройки: путь к `tree-lint`, путь к Node.js, путь к конфигу,
-    таймаут.
-- **Чекбоксы**: «Scan project on file save» и «Show the Tree-lint tool window
-  when violations are found».
-- **Подсветка в дереве проекта**: волнистое подчёркивание в цвет severity у
-  файлов/директорий с нарушениями **и у всех родительских папок вплоть до
-  корня** (severity — максимальный среди потомков, в тултипе — число
-  нарушений внутри).
-- **Tool window «Tree-lint»** — таблица нарушений (Severity / Message / Path)
-  со статусом и именем найденного конфига; двойной клик открывает файл,
-  для директории — выделяет её в дереве проекта.
+- **Three lint modes** (radio buttons in **Settings → Languages & Frameworks →
+  Tree-lint**, like the Biome/ESLint plugins):
+  - `Disabled` — the plugin is off, all highlighting is cleared;
+  - `Automatic` — everything is detected automatically: the root config is
+    searched from the project folder upwards
+    (`tree-lint.config.{ts,js,mjs,mts,json,yaml,yml}`), Node.js comes from
+    `PATH`, and the CLI is resolved as
+    `node_modules/@redwestdev/tree-lint/dist/cli.js` (including monorepos) →
+    `node_modules/.bin/tree-lint` → `tree-lint` from `PATH`. Scans run: when
+    the project opens, on file save (if the checkbox is on), on file
+    create/rename/delete, and when the config changes (always);
+  - `Manual` — scans run only on demand via **Tools → Tree-lint: Scan
+    Project** (or the **Scan project** button in the tool window). This mode
+    shows the manual fields: `tree-lint` executable, Node.js executable,
+    configuration file, and scan timeout.
+- **Checkboxes**: "Scan project on file save" and "Show the Tree-lint tool
+  window when violations are found".
+- **Project view highlighting**: files and directories with violations — and
+  **every parent folder up to the project root** — get a wavy underline in
+  the severity color. Parents use the most severe descendant severity, and
+  their tooltip shows the number of violations inside.
+- **Tree-lint tool window**: a table of violations (Severity / Message /
+  Path) with a status bar that shows the detected config name. Double-click
+  opens a file; for a directory it selects it in the project view.
 
-## Требования
+## Requirements
 
-- JDK 21+ для сборки (Gradle сам скачает toolchain 21 через Foojay, если его нет).
-- Node.js 18+ в `PATH` (или явно указанный путь в настройках).
-- Конфиг `tree-lint.config.*` в проекте (создаётся командой `tree-lint init`);
-  без конфига скан невозможен — плагин покажет сообщение об этом.
-- Версия `tree-lint` с поддержкой `--json` (см. контракт ниже).
+- JDK 21+ to build (Gradle downloads the toolchain automatically via Foojay).
+- Node.js 18+ on `PATH` (or an explicit path in the Manual mode settings).
+- A `tree-lint.config.*` in the project (created via `tree-lint init`); scans
+  are not possible without it and the plugin shows a message in that case.
+- A `tree-lint` version that supports `--json` (see the contract below).
 
-## Контракт с CLI
+## CLI contract
 
-Плагин не парсит цветной вывод. Он запускает:
+The plugin does not parse colored output. It runs:
 
 ```bash
 tree-lint scan <project> --json --no-fail-on-error
 ```
 
-и ожидает JSON в stdout:
+and expects JSON on stdout:
 
 ```json
 {
@@ -63,67 +65,75 @@ tree-lint scan <project> --json --no-fail-on-error
 }
 ```
 
-`--no-fail-on-error` нужен, чтобы наличие ошибок не мешало разбору отчёта:
-плагин сам решает, как показывать ошибки. Если JSON пустой, плагин показывает
-stderr и код выхода.
+`--no-fail-on-error` keeps the exit code at zero when violations exist so the
+report is still parsed; the plugin decides how to present errors. If stdout is
+empty, the plugin shows stderr and the exit code.
 
-Severity нарушений задаётся самим tree-lint (поля `type` в конфиге):
-`error` → красный, `warning` → жёлтый, остальные типы → синий.
+Severity comes from the tree-lint config (`type` fields): `error` → red,
+`warning` → yellow, custom types → blue.
 
-## Сборка
+## Building
 
 ```bash
 ./gradlew buildPlugin
 ```
 
-Готовый архив: `build/distributions/tree-lint-ide-plugin-0.1.0.zip`.
+The resulting archive is
+`build/distributions/tree-lint-intellij-plugin-0.1.0.zip`.
 
-По умолчанию сборка скачивает WebStorm `platformVersion` из `gradle.properties`.
-Чтобы использовать установленную IDE:
+By default the build downloads WebStorm `platformVersion` from
+`gradle.properties`. To build against an installed IDE instead:
 
 ```bash
 ./gradlew buildPlugin -PlocalPlatformPath=/Applications/WebStorm.app
 ```
 
-## Запуск в песочнице
+## Running in a sandbox
 
 ```bash
 ./gradlew runIde -PlocalPlatformPath=/Applications/WebStorm.app
 ```
 
-Откроется изолированный экземпляр WebStorm с установленным плагином. Откройте
-проект с `tree-lint.config.*` и сохраните любой файл — дерево проекта и панель
-«Tree-lint» обновятся.
+An isolated WebStorm instance with the plugin installed opens. Open a project
+with a `tree-lint.config.*` and save any file — the project view and the
+Tree-lint panel update automatically.
 
-## Установка в WebStorm вручную
+## Installing manually
 
-1. Соберите архив (`./gradlew buildPlugin`).
+1. Build the archive (`./gradlew buildPlugin`).
 2. **Settings → Plugins → ⚙ → Install Plugin from Disk…**
-3. Выберите `build/distributions/tree-lint-ide-plugin-0.1.0.zip`.
+3. Pick `build/distributions/tree-lint-intellij-plugin-0.1.0.zip`.
 
-## Структура
+## Testing
+
+```bash
+./gradlew test
+```
+
+Unit tests cover JSON report parsing, severity mapping, config discovery,
+CLI command resolution, and path/ancestor highlighting logic.
+
+## Structure
 
 ```text
 src/main/kotlin/dev/redwest/treelint/
-├── model/       # DTO JSON-отчёта + severity
-├── runner/      # запуск CLI и разбор отчёта
-├── service/     # кэш отчёта на проект + планировщик сканов (save/config)
-├── settings/    # настройки + UI
-└── ui/          # tool window + подсветка дерева проекта
+├── action/      # manual scan action (Tools → Tree-lint: Scan Project)
+├── model/       # JSON report DTOs + severity logic
+├── runner/      # CLI resolution, config discovery, report parsing, process run
+├── service/     # per-project report cache + scan scheduler (save/config)
+├── settings/    # settings state + UI
+└── ui/          # tool window + project view decorator
 ```
 
-## Известные ограничения
+## Known limitations
 
-- Подсветка только в дереве проекта; подсветка кода появится вместе с
-  анализом импортов.
-- LSP не используется: tree-lint — CLI-линтер дерева файлов, LSP-сервера у
-  пакета нет.
+- Highlighting lives in the project view only; code-level highlighting will
+  arrive together with import analysis.
+- No LSP: tree-lint is a file-tree CLI linter and ships no language server.
 
-## Следующие шаги
+## Roadmap
 
-- Триггеры на создание/переименование файлов.
-- Подсветка кода в редакторе (для анализа импортов).
-- Быстрые исправления (например, перемещение файла в ожидаемую директорию).
-- Автодополнение и валидация `tree-lint.config.*` через JSON Schema.
-- Публикация в JetBrains Marketplace (`publishPlugin`).
-
+- Code highlighting in the editor (for import analysis).
+- Quick fixes (e.g. moving a file to the expected directory).
+- Autocompletion and validation for `tree-lint.config.*` via JSON Schema.
+- JetBrains Marketplace publishing (`publishPlugin`).
