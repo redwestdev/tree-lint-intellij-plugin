@@ -1,0 +1,50 @@
+<idea-plugin>
+    <id>dev.redwest.tree-lint</id>
+    <name>Tree-lint</name>
+    <vendor url="https://github.com/redwestdev/tree-lint">redwestdev</vendor>
+
+    <description><![CDATA[
+        Runs <a href="https://github.com/redwestdev/tree-lint">tree-lint</a> scans
+        on file save and configuration changes, highlights files and directories
+        with structure violations in the Project view and lists the report in
+        the Tree-lint tool window.
+    ]]></description>
+
+    <idea-version since-build="251" until-build="263.*"/>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.modules.lang</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <projectConfigurable
+                id="dev.redwest.treelint.settings"
+                groupId="language"
+                displayName="Tree-lint"
+                instance="dev.redwest.treelint.settings.TreeLintConfigurable"/>
+
+        <toolWindow
+                id="Tree-lint"
+                anchor="right"
+                secondary="true"
+                factoryClass="dev.redwest.treelint.ui.TreeLintToolWindowFactory"/>
+
+        <notificationGroup id="Tree-lint" displayType="BALLOON"/>
+
+        <projectViewNodeDecorator
+                implementationClass="dev.redwest.treelint.ui.TreeLintProjectViewDecorator"/>
+
+        <postStartupActivity
+                implementationClass="dev.redwest.treelint.service.TreeLintStartupActivity"/>
+    </extensions>
+
+    <actions>
+        <action
+                id="TreeLint.ScanProject"
+                class="dev.redwest.treelint.action.ScanProjectAction"
+                text="Tree-lint: Scan Project"
+                description="Run tree-lint scan for the current project">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+            <add-to-group group-id="ProjectViewPopupMenu" anchor="last"/>
+        </action>
+    </actions>
+</idea-plugin>
