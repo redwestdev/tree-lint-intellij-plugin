@@ -2,7 +2,14 @@
 build/
 .intellijPlatform/
 .idea/
+.vscode/
 *.iml
 .DS_Store
 
 bin/
+.vscode/
+
+# Signing keys must never be committed
+*.pem
+*.p12
+*.jks

@@ -37,40 +37,47 @@ project structure violations right inside the IDE.
 - Node.js 18+ on `PATH` (or an explicit path in the Manual mode settings).
 - A `tree-lint.config.*` in the project (created via `tree-lint init`); scans
   are not possible without it and the plugin shows a message in that case.
-- A `tree-lint` version that supports `--json` (see the contract below).
+- A `tree-lint` version that supports `--report` (`@redwestdev/tree-lint`
+  0.0.6+; see the contract below).
 
 ## CLI contract
 
 The plugin does not parse colored output. It runs:
 
 ```bash
-tree-lint scan <project> --json --no-fail-on-error
+tree-lint scan <project> --report --group-by path --no-fail-on-error
 ```
 
-and expects JSON on stdout:
+and expects the JSON validation report on stdout:
 
 ```json
 {
   "generatedAt": "2026-01-01T00:00:00.000Z",
-  "projectRoot": "/project",
+  "root": ["src"],
   "errors": 1,
   "warnings": 0,
-  "violations": [
-    {
-      "type": "error",
-      "path": "/project/src/components/Ui",
-      "message": "Name length is outside the allowed character limits"
+  "grouped": {
+    "/project/src/components/Ui": {
+      "error": ["Name length is outside the allowed character limits"],
+      "warning": []
     }
-  ]
+  }
 }
 ```
 
+`--report` suppresses the human-readable output (spinner, scan plan, tree) and
+writes only the report. It takes an optional file name, so the project path
+must come first in the command line — the plugin always does that.
+`--group-by path` is requested explicitly: violations are keyed by their
+absolute path, and each group holds `error` and `warning` messages.
+
 `--no-fail-on-error` keeps the exit code at zero when violations exist so the
 report is still parsed; the plugin decides how to present errors. If stdout is
-empty, the plugin shows stderr and the exit code.
+empty, the plugin unwraps the CLI error from stderr (`{"error": "..."}`) and
+shows it, or falls back to the exit code.
 
 Severity comes from the tree-lint config (`type` fields): `error` → red,
-`warning` → yellow, custom types → blue.
+`warning` → yellow; an unexpected severity falls back to blue.
 
 ## Building
 
@@ -79,7 +86,7 @@ Severity comes from the tree-lint config (`type` fields): `error` → red,
 ```
 
 The resulting archive is
-`build/distributions/tree-lint-intellij-plugin-0.1.0.zip`.
+`build/distributions/tree-lint-intellij-plugin-<version>.zip`.
 
 By default the build downloads WebStorm `platformVersion` from
 `gradle.properties`. To build against an installed IDE instead:
@@ -95,14 +102,78 @@ By default the build downloads WebStorm `platformVersion` from
 ```
 
 An isolated WebStorm instance with the plugin installed opens. Open a project
-with a `tree-lint.config.*` and save any file — the project view and the
+with a `tree-lint.config.*`, make sure the plugin is in **Automatic** mode with
+"Scan project on file save" enabled, and save a file — the project view and the
 Tree-lint panel update automatically.
 
 ## Installing manually
 
 1. Build the archive (`./gradlew buildPlugin`).
 2. **Settings → Plugins → ⚙ → Install Plugin from Disk…**
-3. Pick `build/distributions/tree-lint-intellij-plugin-0.1.0.zip`.
+3. Pick `build/distributions/tree-lint-intellij-plugin-<version>.zip` (or the
+   `-signed.zip` produced by `./scripts/sign-plugin.sh`).
+
+## Publishing to JetBrains Marketplace
+
+The plugin is published as `dev.redwest.tree-lint` (the ID is permanent once
+the first version is uploaded). Releases are signed with a personal
+certificate and uploaded by the `publishPlugin` Gradle task; CI does it on
+every `v*` tag (see [`.github/workflows/release.yml`](.github/workflows/release.yml)).
+
+### One-time setup
+
+1. Create a signing key pair once. `scripts/sign-plugin.sh` looks for it in
+   `~/.config/redwest/tree-lint-signing/` (override the location with
+   `SIGNING_KEY_FILE` / `SIGNING_CHAIN_FILE`). Keep the private key and its
+   passphrase in a password manager — it is the plugin identity, do not commit
+   it:
+
+   ```bash
+   mkdir -p ~/.config/redwest/tree-lint-signing && cd ~/.config/redwest/tree-lint-signing
+   openssl genpkey -aes-256-cbc -algorithm RSA -out signing-key.pem -pkeyopt rsa_keygen_bits:4096
+   openssl req -key signing-key.pem -new -x509 -days 3650 -out signing-chain.crt -subj "/CN=Redwest Dev"
+   ```
+
+2. Upload the first version manually: run `./scripts/sign-plugin.sh`
+   (it reads the key files and asks for the passphrase), check the archive with
+   `./gradlew verifyPluginSignature`, then upload
+   `build/distributions/tree-lint-intellij-plugin-<version>-signed.zip` on
+   <https://plugins.jetbrains.com/author/me> → **Add new plugin**.
+   The first publication of a new plugin cannot be done with Gradle.
+
+3. Generate a Marketplace token at
+   <https://plugins.jetbrains.com/author/me/tokens> and add these repository
+   secrets (**Settings → Secrets and variables → Actions**):
+
+   | Secret                  | Value                                        |
+   | ----------------------- | -------------------------------------------- |
+   | `PUBLISH_TOKEN`         | the token from the previous step             |
+   | `CERTIFICATE_CHAIN`     | contents of `signing-chain.crt`              |
+   | `PRIVATE_KEY`           | contents of `signing-key.pem`                |
+   | `PRIVATE_KEY_PASSWORD`  | passphrase of `signing-key.pem`              |
+
+### Releasing
+
+Bump `version` in `build.gradle.kts`, describe the change in
+[`CHANGELOG.md`](CHANGELOG.md) (the first `## [x.y.z]` section becomes the
+release notes), commit, then push a matching tag:
+
+```bash
+git tag v0.2.0 && git push origin v0.2.0
+```
+
+The release workflow refuses to publish if the tag, the version and the
+changelog do not agree. Otherwise it runs the tests, signs the plugin, uploads
+it to the `default` channel and attaches the signed ZIP to the GitHub release.
+To publish from your machine instead:
+
+```bash
+export PUBLISH_TOKEN=...
+export CERTIFICATE_CHAIN="$(cat ~/.config/redwest/tree-lint-signing/signing-chain.crt)"
+export PRIVATE_KEY="$(cat ~/.config/redwest/tree-lint-signing/signing-key.pem)"
+read -rs PRIVATE_KEY_PASSWORD && export PRIVATE_KEY_PASSWORD
+./gradlew publishPlugin
+```
 
 ## Testing
 
@@ -112,6 +183,11 @@ Tree-lint panel update automatically.
 
 Unit tests cover JSON report parsing, severity mapping, config discovery,
 CLI command resolution, and path/ancestor highlighting logic.
+
+CI runs the same checks on every push and pull request, plus the IntelliJ
+Plugin Verifier against the recommended IDE builds on `main`
+([`.github/workflows/ci.yml`](.github/workflows/ci.yml)). Locally the verifier
+can be run with `./gradlew verifyPlugin`.
 
 ## Structure
 
@@ -123,6 +199,10 @@ src/main/kotlin/dev/redwest/treelint/
 ├── service/     # per-project report cache + scan scheduler (save/config)
 ├── settings/    # settings state + UI
 └── ui/          # tool window + project view decorator
+
+scripts/          # sign-plugin.sh (local signing helper)
+.github/workflows # CI checks and tag-based release
+CHANGELOG.md      # release notes, also fed into plugin.xml
 ```
 
 ## Known limitations
@@ -136,4 +216,7 @@ src/main/kotlin/dev/redwest/treelint/
 - Code highlighting in the editor (for import analysis).
 - Quick fixes (e.g. moving a file to the expected directory).
 - Autocompletion and validation for `tree-lint.config.*` via JSON Schema.
-- JetBrains Marketplace publishing (`publishPlugin`).
+
+## License
+
+[MIT](LICENSE)

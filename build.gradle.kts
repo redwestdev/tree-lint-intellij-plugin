@@ -48,11 +48,37 @@ kotlin {
     jvmToolchain(21)
 }
 
+val changeNotesFromChangelog = providers.fileContents(layout.projectDirectory.file("CHANGELOG.md")).asText.map { markdown ->
+    Regex("(?ms)^## .*?(?=^## |\\z)").find(markdown)?.value?.trim().orEmpty()
+}
+
 intellijPlatform {
     pluginConfiguration {
+        id = "dev.redwest.tree-lint"
+        name = "Tree-lint"
+        version = project.version.toString()
+        changeNotes = changeNotesFromChangelog
+
         ideaVersion {
             sinceBuild = "251"
             untilBuild = "263.*"
+        }
+    }
+
+    signing {
+        certificateChain = providers.environmentVariable("CERTIFICATE_CHAIN")
+        privateKey = providers.environmentVariable("PRIVATE_KEY")
+        password = providers.environmentVariable("PRIVATE_KEY_PASSWORD")
+    }
+
+    publishing {
+        token = providers.environmentVariable("PUBLISH_TOKEN")
+        channels = listOf("default")
+    }
+
+    pluginVerification {
+        ides {
+            recommended()
         }
     }
 }

@@ -28,21 +28,26 @@ object TreeLintRunner {
         }
 
         val stdout = output.stdout.trim()
-        if (output.exitCode != 0 && stdout.isEmpty()) {
-            val stderr = output.stderr.trim()
-            val message = when {
-                stderr.contains("Configuration file not found", ignoreCase = true) ->
-                    "tree-lint config not found: create tree-lint.config.* in the project (run `tree-lint init`)."
-                stderr.isNotEmpty() -> stderr
-                else -> "tree-lint exited with code ${output.exitCode}"
-            }
-            throw TreeLintException(message)
-        }
         if (stdout.isEmpty()) {
+            if (output.exitCode != 0) {
+                throw TreeLintException(failureMessage(output.exitCode, output.stderr.trim()))
+            }
             throw TreeLintException("tree-lint produced no report")
         }
 
         return ReportParser.parse(stdout)
+    }
+
+    private fun failureMessage(exitCode: Int, stderr: String): String {
+        val detail = ReportParser.parseCliError(stderr) ?: stderr
+        return when {
+            detail.contains("Configuration file not found", ignoreCase = true) ->
+                "tree-lint config not found: create tree-lint.config.* in the project (run `tree-lint init`)."
+            detail.contains("unknown option", ignoreCase = true) ->
+                "The installed tree-lint does not support the `--report` flag. Update @redwestdev/tree-lint to 0.0.6 or newer."
+            detail.isNotEmpty() -> detail
+            else -> "tree-lint exited with code $exitCode"
+        }
     }
 
     private fun buildCommand(basePath: String): GeneralCommandLine {
@@ -57,7 +62,9 @@ object TreeLintRunner {
 
         command.withWorkDirectory(File(basePath))
         command.withEnvironment("NO_COLOR", "1")
-        command.addParameters("scan", basePath, "--json", "--no-fail-on-error")
+        // The project path must come before --report: the flag takes an optional
+        // file name, so a positional argument right after it would be consumed.
+        command.addParameters("scan", basePath, "--report", "--group-by", "path", "--no-fail-on-error")
 
         val configPath = state.configPath.trim()
         if (configPath.isNotEmpty()) {

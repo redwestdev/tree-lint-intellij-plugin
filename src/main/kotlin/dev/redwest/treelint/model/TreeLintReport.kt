@@ -22,7 +22,8 @@ data class TreeLintViolation(
 
 data class TreeLintReport(
     val generatedAt: String = "",
-    val projectRoot: String = "",
+    /** Roots from the tree-lint config the report was built for (relative or absolute). */
+    val roots: List<String> = emptyList(),
     val errors: Int = 0,
     val warnings: Int = 0,
     val violations: List<TreeLintViolation> = emptyList(),

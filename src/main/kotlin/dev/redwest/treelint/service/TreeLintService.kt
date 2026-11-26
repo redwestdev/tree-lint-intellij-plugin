@@ -43,7 +43,9 @@ class TreeLintService(private val project: Project) {
             val report = TreeLintRunner.scan(project, indicator)
             lastReport = report
             lastError = null
-            projectRoot = report.projectRoot.ifBlank { project.basePath }.orEmpty()
+            // Violation paths come from the CLI already resolved against the
+            // scanned project path, so the project base is the report root.
+            projectRoot = project.basePath.orEmpty()
             violationsByPath = report.violations.groupBy { normalize(it.path) }
             ancestorIssues = if (projectRoot.isNullOrBlank()) {
                 emptyMap()

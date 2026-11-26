@@ -1,13 +1,26 @@
 <idea-plugin>
     <id>dev.redwest.tree-lint</id>
     <name>Tree-lint</name>
-    <vendor url="https://github.com/redwestdev/tree-lint">redwestdev</vendor>
+    <vendor url="https://github.com/redwestdev">Redwest Dev</vendor>
 
     <description><![CDATA[
-        Runs <a href="https://github.com/redwestdev/tree-lint">tree-lint</a> scans
-        on file save and configuration changes, highlights files and directories
-        with structure violations in the Project view and lists the report in
-        the Tree-lint tool window.
+        <p>Runs <a href="https://github.com/redwestdev/tree-lint">tree-lint</a> scans for the current
+        project and shows project structure violations right inside the IDE.</p>
+        <ul>
+            <li>Highlights files and folders that break the structure rules &mdash; and every parent
+            folder up to the project root &mdash; in the Project view, colored by severity.</li>
+            <li>Tree-lint tool window with the full violation list; double-click opens the file or
+            reveals the folder in the project tree.</li>
+            <li>Automatic mode finds the config, Node.js on <code>PATH</code>, and a locally
+            installed CLI (<code>node_modules/@redwestdev/tree-lint</code> or
+            <code>node_modules/.bin</code>, falling back to a global <code>tree-lint</code>); manual
+            mode lets you set the executable paths and the scan timeout explicitly.</li>
+            <li>Scans on project open, file save, file create/rename/delete and config changes, plus
+            <b>Tools &rarr; Tree-lint: Scan Project</b> on demand. Which files are checked is decided
+            by the tree-lint config, not the plugin.</li>
+        </ul>
+        <p><b>Requirements:</b> Node.js 18+, a <code>tree-lint.config.*</code> in the project, and
+        tree-lint <code>0.0.6+</code> with the <code>--report</code> flag.</p>
     ]]></description>
 
     <idea-version since-build="251" until-build="263.*"/>
