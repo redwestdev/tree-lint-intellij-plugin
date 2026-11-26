@@ -113,67 +113,23 @@ Tree-lint panel update automatically.
 3. Pick `build/distributions/tree-lint-intellij-plugin-<version>.zip` (or the
    `-signed.zip` produced by `./scripts/sign-plugin.sh`).
 
-## Publishing to JetBrains Marketplace
+## Releasing
 
-The plugin is published as `dev.redwest.tree-lint` (the ID is permanent once
-the first version is uploaded). Releases are signed with a personal
-certificate and uploaded by the `publishPlugin` Gradle task; CI does it on
-every `v*` tag (see [`.github/workflows/release.yml`](.github/workflows/release.yml)).
+CI ([`.github/workflows/release.yml`](.github/workflows/release.yml)) builds,
+signs and publishes the plugin on every `v*` tag:
 
-### One-time setup
-
-1. Create a signing key pair once. `scripts/sign-plugin.sh` looks for it in
-   `~/.config/redwest/tree-lint-signing/` (override the location with
-   `SIGNING_KEY_FILE` / `SIGNING_CHAIN_FILE`). Keep the private key and its
-   passphrase in a password manager — it is the plugin identity, do not commit
-   it:
+1. Bump `version` in `build.gradle.kts`.
+2. Describe the change in [`CHANGELOG.md`](CHANGELOG.md) — the first
+   `## [x.y.z]` section becomes the release notes on the Marketplace page.
+3. Commit, then push a matching tag:
 
    ```bash
-   mkdir -p ~/.config/redwest/tree-lint-signing && cd ~/.config/redwest/tree-lint-signing
-   openssl genpkey -aes-256-cbc -algorithm RSA -out signing-key.pem -pkeyopt rsa_keygen_bits:4096
-   openssl req -key signing-key.pem -new -x509 -days 3650 -out signing-chain.crt -subj "/CN=Redwest Dev"
+   git tag v0.2.0 && git push origin v0.2.0
    ```
 
-2. Upload the first version manually: run `./scripts/sign-plugin.sh`
-   (it reads the key files and asks for the passphrase), check the archive with
-   `./gradlew verifyPluginSignature`, then upload
-   `build/distributions/tree-lint-intellij-plugin-<version>-signed.zip` on
-   <https://plugins.jetbrains.com/author/me> → **Add new plugin**.
-   The first publication of a new plugin cannot be done with Gradle.
-
-3. Generate a Marketplace token at
-   <https://plugins.jetbrains.com/author/me/tokens> and add these repository
-   secrets (**Settings → Secrets and variables → Actions**):
-
-   | Secret                  | Value                                        |
-   | ----------------------- | -------------------------------------------- |
-   | `PUBLISH_TOKEN`         | the token from the previous step             |
-   | `CERTIFICATE_CHAIN`     | contents of `signing-chain.crt`              |
-   | `PRIVATE_KEY`           | contents of `signing-key.pem`                |
-   | `PRIVATE_KEY_PASSWORD`  | passphrase of `signing-key.pem`              |
-
-### Releasing
-
-Bump `version` in `build.gradle.kts`, describe the change in
-[`CHANGELOG.md`](CHANGELOG.md) (the first `## [x.y.z]` section becomes the
-release notes), commit, then push a matching tag:
-
-```bash
-git tag v0.2.0 && git push origin v0.2.0
-```
-
-The release workflow refuses to publish if the tag, the version and the
-changelog do not agree. Otherwise it runs the tests, signs the plugin, uploads
-it to the `default` channel and attaches the signed ZIP to the GitHub release.
-To publish from your machine instead:
-
-```bash
-export PUBLISH_TOKEN=...
-export CERTIFICATE_CHAIN="$(cat ~/.config/redwest/tree-lint-signing/signing-chain.crt)"
-export PRIVATE_KEY="$(cat ~/.config/redwest/tree-lint-signing/signing-key.pem)"
-read -rs PRIVATE_KEY_PASSWORD && export PRIVATE_KEY_PASSWORD
-./gradlew publishPlugin
-```
+The workflow refuses to publish unless the tag, the version and the changelog
+section agree. Maintainer-only steps (signing key, Marketplace token, the
+one-time manual first upload) are kept outside this repository.
 
 ## Testing
 
